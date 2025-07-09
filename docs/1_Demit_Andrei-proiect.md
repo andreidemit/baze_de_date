@@ -741,8 +741,174 @@ WHERE cod_pacient IN (
 
 ## 14. Crearea unei vizualizări complexe. Dați un exemplu de operație LMD permisă pe vizualizarea respectivă și un exemplu de operație LMD nepermisă.
 
+## **Vizualizare complexă**: `vw_pacienti_diagnosticati`
+
+Această vizualizare va arăta toți pacienții care au primit **cel puțin un diagnostic**, împreună cu:
+
+* numele specialistului,
+* tipul tulburării,
+* severitatea și data diagnosticării.
+
+```sql
+CREATE OR REPLACE VIEW vw_pacienti_diagnosticati AS
+SELECT
+    p.cod_pacient,
+    p.nume AS nume_pacient,
+    p.prenume AS prenume_pacient,
+    s.nume AS nume_specialist,
+    t.denumire AS tulburare,
+    t.severitate,
+    d.data_diagnostic
+FROM pacienti p
+JOIN diagnostice d ON p.cod_pacient = d.cod_pacient
+JOIN specialisti s ON d.cod_specialist = s.cod_specialist
+JOIN tulburari_personalitate t ON d.cod_tulburare = t.cod_tulburare;
+```
+
+---
+
+## Exemplu de **operație LMD permisă**: `UPDATE`
+
+Această operație actualizează **data diagnosticării** direct prin vizualizare:
+
+```sql
+UPDATE vw_pacienti_diagnosticati
+SET data_diagnostic = TO_DATE('2023-01-01', 'YYYY-MM-DD')
+WHERE cod_pacient = 1 AND tulburare = 'Tulburare borderline';
+```
+
+> **Este permisă** deoarece:
+
+* `UPDATE` afectează un singur tabel (`diagnostice`);
+* coloana modificată (`data_diagnostic`) aparține direct acelui tabel;
+* nu există funcții de agregare, `DISTINCT` sau `GROUP BY` în `VIEW`.
+
+---
+
+## Exemplu de **operație LMD nepermisă**: `INSERT`
+
+```sql
+INSERT INTO vw_pacienti_diagnosticati (
+    cod_pacient, nume_pacient, prenume_pacient, nume_specialist, tulburare, severitate, data_diagnostic
+) VALUES (
+    10, 'Nou', 'Pacient', 'Popescu', 'Tulburare X', 'MODERATA', SYSDATE
+);
+```
+
+> **Această inserare va eșua** deoarece:
+
+* `vw_pacienti_diagnosticati` este rezultatul unui `JOIN` între mai multe tabele.
+* Oracle nu permite `INSERT` pe vizualizări complexe fără `INSTEAD OF TRIGGER`.
+
+---
+
 ## 15. Formulați în limbaj natural și implementați în SQL: o cerere ce utilizează operația outer-join pe minimum 4 tabele, o cerere ce utilizează operația division și o cerere care implementează analiza top-n.
 Observație: Cele 3 cereri sunt diferite de cererile de la exercițiul 12.
+
+
+## Cererea 1 – `OUTER JOIN` pe 4 tabele
+
+
+> Obține lista tuturor pacienților, împreună cu:
+>
+> * numele testului aplicat (dacă există),
+> * scorul obținut (dacă a fost completat),
+> * diagnosticul asociat (dacă a fost stabilit),
+> * și medicamentul prescris (dacă există),
+>   chiar dacă pacientul nu are încă test, diagnostic sau prescripție.
+
+### SQL:
+
+```sql
+SELECT 
+    p.cod_pacient,
+    p.nume || ' ' || p.prenume AS nume_pacient,
+    t.denumire AS test_aplicat,
+    rt.scor_obtinut,
+    tp.denumire AS diagnostic,
+    m.denumire AS medicament
+FROM pacienti p
+LEFT JOIN consultatii c ON p.cod_pacient = c.cod_pacient
+LEFT JOIN rezultate_teste rt ON c.cod_consultatie = rt.cod_consultatie
+LEFT JOIN teste_psihologice t ON rt.cod_test = t.cod_test
+LEFT JOIN diagnostice d ON p.cod_pacient = d.cod_pacient
+LEFT JOIN tulburari_personalitate tp ON d.cod_tulburare = tp.cod_tulburare
+LEFT JOIN prescriptii pr ON p.cod_pacient = pr.cod_pacient
+LEFT JOIN medicamente m ON pr.cod_medicament = m.cod_medicament;
+```
+
+---
+
+## Cererea 2 – Simulare operație `DIVISION` (toți pacienții care au făcut **toate** testele)
+
+> Găsește pacienții care au făcut **toate testele psihologice existente** în baza de date.
+
+### SQL (simulată cu `NOT EXISTS`):
+
+```sql
+SELECT p.cod_pacient, p.nume || ' ' || p.prenume AS nume_pacient
+FROM pacienti p
+WHERE NOT EXISTS (
+    SELECT t.cod_test
+    FROM teste_psihologice t
+    MINUS
+    SELECT rt.cod_test
+    FROM consultatii c
+    JOIN rezultate_teste rt ON c.cod_consultatie = rt.cod_consultatie
+    WHERE c.cod_pacient = p.cod_pacient
+);
+```
+
+> **Explicație:**
+> Pentru fiecare pacient, verificăm dacă **există vreun test pe care nu l-a făcut**. Dacă nu există (adică a făcut toate), îl includem.
+
+---
+
+## Cererea 3 – Analiză `TOP-N`: cei mai afectați pacienți (intensitate totală simptome)
+
+> Afișează **top 3 pacienți** care au acumulat cele mai mari scoruri totale de intensitate a simptomelor.
+
+### SQL (folosind `ROWNUM` sau `FETCH FIRST`):
+
+#### Varianta Oracle clasică cu ROWNUM:
+
+```sql
+SELECT *
+FROM (
+    SELECT 
+        p.cod_pacient,
+        p.nume || ' ' || p.prenume AS nume_pacient,
+        SUM(sp.intensitate) AS intensitate_totala
+    FROM pacienti p
+    JOIN simptome_pacienti sp ON p.cod_pacient = sp.cod_pacient
+    GROUP BY p.cod_pacient, p.nume, p.prenume
+    ORDER BY intensitate_totala DESC
+)
+WHERE ROWNUM <= 3;
+```
+
+#### Varianta Oracle 12+ cu FETCH FIRST:
+
+```sql
+SELECT 
+    p.cod_pacient,
+    p.nume || ' ' || p.prenume AS nume_pacient,
+    SUM(sp.intensitate) AS intensitate_totala
+FROM pacienti p
+JOIN simptome_pacienti sp ON p.cod_pacient = sp.cod_pacient
+GROUP BY p.cod_pacient, p.nume, p.prenume
+ORDER BY intensitate_totala DESC
+FETCH FIRST 3 ROWS ONLY;
+```
+
+| Cerere SQL                  | Ce face                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| 1. `OUTER JOIN` pe 4 tabele | Afișează toți pacienții + test/scor/diagnostic/medicament (chiar dacă lipsesc) |
+| 2. `DIVISION` (simulată)    | Pacienții care au făcut **toate** testele psihologice disponibile              |
+| 3. `TOP-N`                  | Top 3 pacienți cu cele mai mari scoruri totale de **intensitate simptome**     |
+
+---
+
 
 ## 16. Optimizarea unei cereri, aplicând regulile de optimizare ce derivă din proprietățile operatorilor algebrei relaționale. Cererea va fi exprimată prin expresie algebrică, arbore algebric și limbaj (SQL), atât anterior cât și ulterior optimizării. ALTERNATIVĂ: două instrucțiuni select echivalente semantic, de comparat din punct de vedere a execuției (explicat plan de execuție).
 
