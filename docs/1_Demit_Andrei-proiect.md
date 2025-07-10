@@ -912,6 +912,89 @@ FETCH FIRST 3 ROWS ONLY;
 
 ## 16. Optimizarea unei cereri, aplicând regulile de optimizare ce derivă din proprietățile operatorilor algebrei relaționale. Cererea va fi exprimată prin expresie algebrică, arbore algebric și limbaj (SQL), atât anterior cât și ulterior optimizării. ALTERNATIVĂ: două instrucțiuni select echivalente semantic, de comparat din punct de vedere a execuției (explicat plan de execuție).
 
+
+## Contextul comenzii
+
+Vrem să obținem **numele pacienților și scorul la testul MMPI**, doar dacă scorul este **mai mare de 70**, ordonat descrescător.
+
+---
+
+## Variantele echivalente semantic:
+
+### **Varianta 1 (neoptimizată)** – aplică filtrarea după `JOIN`
+
+```sql
+SELECT p.nume, p.prenume, t.denumire, rt.scor_obtinut
+FROM pacienti p
+JOIN consultatii c ON p.cod_pacient = c.cod_pacient
+JOIN rezultate_teste rt ON c.cod_consultatie = rt.cod_consultatie
+JOIN teste_psihologice t ON rt.cod_test = t.cod_test
+WHERE t.denumire = 'MMPI' AND rt.scor_obtinut > 70
+ORDER BY rt.scor_obtinut DESC;
+```
+
+### **Varianta 2 (optimizată)** – aplică filtrarea **mai devreme** (în subcerere cu predicate restrânse)
+
+```sql
+SELECT p.nume, p.prenume, t.denumire, rt.scor_obtinut
+FROM pacienti p
+JOIN consultatii c ON p.cod_pacient = c.cod_pacient
+JOIN (
+    SELECT * FROM rezultate_teste
+    WHERE scor_obtinut > 70
+) rt ON c.cod_consultatie = rt.cod_consultatie
+JOIN (
+    SELECT * FROM teste_psihologice
+    WHERE denumire = 'MMPI'
+) t ON rt.cod_test = t.cod_test
+ORDER BY rt.scor_obtinut DESC;
+```
+
+---
+
+## Reprezentare în **algebră relațională**
+
+### **Varianta 1 (neoptimizată)**
+
+```
+π_nume,prenume,denumire,scor_obtinut (
+  σ_denumire='MMPI' ∧ scor_obtinut>70 (
+    (((pacienti ⨝ consultatii) ⨝ rezultate_teste) ⨝ teste_psihologice)
+  )
+)
+```
+
+### **Varianta 2 (optimizată)**
+
+```
+π_nume,prenume,denumire,scor_obtinut (
+  (((pacienti ⨝ consultatii)
+   ⨝ σ_scor_obtinut>70 (rezultate_teste))
+   ⨝ σ_denumire='MMPI' (teste_psihologice))
+)
+```
+---
+
+
+## Explicație plan de execuție
+
+| Aspect                      | Varianta 1 (neoptimizată)                      | Varianta 2 (optimizată)                                    |
+| --------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| Ordine aplicație filtre     | După JOIN-uri (cost mai mare)                  | Înainte de JOIN-uri (reduce număr rânduri early)           |
+| Volume de date intermediare | Mare (toate rândurile combinate apoi filtrate) | Mic (doar MMPI + scoruri > 70 intră în JOIN)               |
+| Timp execuție               | Mai mare                                       | Semnificativ mai mic (mai ales cu indici pe scor/denumire) |
+
+---
+
+## Concluzie
+
+**Optimizarea** constă în:
+
+* aplicarea filtrelor cât mai devreme ("pushed down predicates"),
+* reducerea cardinalității înainte de `JOIN`,
+* rearanjarea logică a expresiei algebrice pentru minimizarea costurilor.
+
+
 ## 17. a. Realizarea normalizării BCNF[, FN4, FN5].
 b. Aplicarea denormalizării, justificând necesitatea acesteia. ALTERNATIVĂ: alegerea unor relații/join-uri din model și reprezentarea acestora într-o bază de date NoSql (MongoDb, Cassandra etc.)
 

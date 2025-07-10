@@ -11,7 +11,7 @@
 
 CREATE OR REPLACE PROCEDURE drop_all_sequences AS
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('🗑️ ELIMINAREA SECVENȚELOR EXISTENTE...');
+    DBMS_OUTPUT.PUT_LINE('ELIMINAREA SECVENȚELOR EXISTENTE...');
     DBMS_OUTPUT.PUT_LINE('=========================================');
     
     -- Elimină fiecare secvență individual
@@ -120,7 +120,7 @@ BEGIN
     END;
     
     DBMS_OUTPUT.PUT_LINE('=========================================');
-    DBMS_OUTPUT.PUT_LINE('🎯 ELIMINAREA SECVENȚELOR FINALIZATĂ!');
+    DBMS_OUTPUT.PUT_LINE('ELIMINAREA SECVENȚELOR FINALIZATĂ!');
 END;
 /
 
@@ -130,7 +130,7 @@ END;
 
 CREATE OR REPLACE PROCEDURE reset_all_sequences AS
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('🔄 RESETAREA SECVENȚELOR LA VALOAREA 1...');
+    DBMS_OUTPUT.PUT_LINE('RESETAREA SECVENȚELOR LA VALOAREA 1...');
     DBMS_OUTPUT.PUT_LINE('==========================================');
     
     -- Elimină și recreează secvențele
@@ -226,7 +226,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('✓ seq_simptome_pacienti resetată');
     
     DBMS_OUTPUT.PUT_LINE('==========================================');
-    DBMS_OUTPUT.PUT_LINE('🎯 RESETAREA SECVENȚELOR FINALIZATĂ!');
+    DBMS_OUTPUT.PUT_LINE('RESETAREA SECVENȚELOR FINALIZATĂ!');
 END;
 /
 
@@ -236,7 +236,7 @@ END;
 
 CREATE OR REPLACE PROCEDURE create_all_sequences AS
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('🔧 CREAREA TUTUROR SECVENȚELOR...');
+    DBMS_OUTPUT.PUT_LINE('CREAREA TUTUROR SECVENȚELOR...');
     DBMS_OUTPUT.PUT_LINE('==================================');
     
     -- Creează secvențele doar dacă nu există
@@ -349,7 +349,7 @@ CREATE OR REPLACE PROCEDURE show_sequences_status AS
     
     seq_count NUMBER := 0;
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('📊 STAREA CURENTĂ A SECVENȚELOR');
+    DBMS_OUTPUT.PUT_LINE('STAREA CURENTĂ A SECVENȚELOR');
     DBMS_OUTPUT.PUT_LINE('================================');
     DBMS_OUTPUT.PUT_LINE('NUME SECVENȚĂ                     | VALOARE CURENTĂ');
     DBMS_OUTPUT.PUT_LINE('-----------------------------------|----------------');
@@ -403,7 +403,7 @@ END;
 -- Afișează ghidul la sfârșitul execuției
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
-    DBMS_OUTPUT.PUT_LINE('🎯 PROCEDURILE DE MANAGEMENT SECVENȚE AU FOST CREATE!');
+    DBMS_OUTPUT.PUT_LINE('PROCEDURILE DE MANAGEMENT SECVENȚE AU FOST CREATE!');
     DBMS_OUTPUT.PUT_LINE('=====================================================');
     DBMS_OUTPUT.PUT_LINE('Utilizează: EXEC show_sequences_status; pentru a vedea starea curentă');
 END;
